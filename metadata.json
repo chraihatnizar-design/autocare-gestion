@@ -1,0 +1,10 @@
+{
+  "name": "AUTOCARE gestion",
+  "description": "Dashboard pour mécanicien mobile : facturation, suivi de paiement, téléchargement PDF, gestion de stock avec scanner de code-barres et alertes, calendrier d'interventions et rappels clients.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
