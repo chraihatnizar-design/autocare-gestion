@@ -1,4 +1,3 @@
-return <h1 style={{color:'red'}}>TEST DEPLOY OK</h1>;
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
