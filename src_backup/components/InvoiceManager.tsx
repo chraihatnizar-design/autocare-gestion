@@ -23,7 +23,7 @@ import {
   Barcode 
 } from 'lucide-react';
 import { Invoice, InvoiceItem, Client, StockItem, PaymentMethod, InvoiceStatus, AppSettings } from '../types';
-import { generateInvoicePDF, generateDeliveryNotePDF } from '../utils/pdfGenerator';
+import { generateInvoicePDF } from '../utils/pdfGenerator';
 
 interface InvoiceManagerProps {
   invoices: Invoice[];
@@ -31,7 +31,7 @@ interface InvoiceManagerProps {
   stock: StockItem[];
   selectedInterventionForInvoice: any;
   setSelectedInterventionForInvoice: (val: any) => void;
-  onAddInvoice: (invoice: Omit<Invoice, 'id' | 'invoiceNumber'>) => Invoice;
+  onAddInvoice: (invoice: Omit<Invoice, 'id' | 'invoiceNumber'>) => void;
   onUpdateInvoiceStatus: (id: string, status: InvoiceStatus, method: PaymentMethod) => void;
   settings?: AppSettings;
 }
@@ -63,37 +63,6 @@ export default function InvoiceManager({
   const [taxRate, setTaxRate] = useState(20);
   const [paymentStatus, setPaymentStatus] = useState<InvoiceStatus>('Unpaid');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Pending');
-  const [generateBLOnInvoiceCreation, setGenerateBLOnInvoiceCreation] = useState<boolean>(true);
-
-  // New detailed fields
-  const [vehicleBrand, setVehicleBrand] = useState('');
-  const [vehicleModel, setVehicleModel] = useState('');
-  const [vehicleRegistration, setVehicleRegistration] = useState('');
-  const [vehicleMileage, setVehicleMileage] = useState('');
-  const [publicNotes, setPublicNotes] = useState('');
-  const [privateNotes, setPrivateNotes] = useState('');
-
-  // Auto reset vehicle & notes on modal opening
-  useEffect(() => {
-    if (showCreateModal) {
-      setVehicleBrand('');
-      setVehicleModel('');
-      setVehicleRegistration('');
-      setVehicleMileage('');
-      setPublicNotes('');
-      setPrivateNotes('');
-    }
-  }, [showCreateModal]);
-
-  // Pre-fill vehicle registration based on selected client
-  useEffect(() => {
-    if (selectedClientId && selectedClientId !== 'new-temp') {
-      const cls = clients.find(c => c.id === selectedClientId);
-      if (cls) {
-        setVehicleRegistration(cls.plate || '');
-      }
-    }
-  }, [selectedClientId, clients]);
 
   // Synchronize default tax rate from user parameters
   useEffect(() => {
@@ -223,18 +192,12 @@ export default function InvoiceManager({
     const finalTotal = calcTTC();
 
     // Fire callback
-    const saved = onAddInvoice({
+    onAddInvoice({
       clientId: client.id,
       clientName: client.name,
       clientEmail: client.email,
       clientPhone: client.phone,
       clientVehicle: client.vehicle,
-      vehicleMileage: vehicleMileage,
-      vehicleBrand: vehicleBrand,
-      vehicleModel: vehicleModel,
-      vehicleRegistration: vehicleRegistration,
-      publicNotes: publicNotes,
-      privateNotes: privateNotes,
       date: invoiceDate,
       dueDate: dueDate,
       items: invoiceItems,
@@ -247,15 +210,6 @@ export default function InvoiceManager({
       interventionId: selectedInterventionForInvoice ? selectedInterventionForInvoice.id : undefined
     });
 
-    // Auto download the invoice PDF
-    generateInvoicePDF(saved);
-
-    if (generateBLOnInvoiceCreation) {
-      setTimeout(() => {
-        generateDeliveryNotePDF(saved);
-      }, 700);
-    }
-
     // Reset All State
     setInvoiceItems([]);
     setDiscount(0);
@@ -264,7 +218,7 @@ export default function InvoiceManager({
     setShowCreateModal(false);
     
     // Auto select newest invoice if possible
-    alert(`🎉 Facture créée avec succès ! Le stock itinérant a été mis à jour automatiquement et vos documents PDF (Facture & Bon de Livraison) ont été générés.`);
+    alert(`🎉 Facture créée avec succès ! Le stock itinérant a été mis à jour automatiquement.`);
   };
 
   // Filter List Invoices
@@ -424,15 +378,6 @@ export default function InvoiceManager({
                     <Download size={14} /> Télécharger PDF
                   </button>
 
-                  {/* Download BL action */}
-                  <button
-                    onClick={() => generateDeliveryNotePDF(selectedInvoice)}
-                    className="p-2 border border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 text-emerald-700 bg-white rounded-xl transition cursor-pointer text-xs font-extrabold flex items-center gap-1 shadow-xxs font-sans"
-                    title="Télécharger le Bon de Livraison (BL)"
-                  >
-                    <Download size={14} /> Télécharger BL
-                  </button>
-
                   {/* Payment adjustment toggling if unpaid */}
                   {selectedInvoice.status === 'Unpaid' && (
                     <button
@@ -526,16 +471,6 @@ export default function InvoiceManager({
                       <p className="text-xxs font-mono text-gray-600 bg-white border border-gray-150 px-1.5 py-0.5 rounded inline-block mt-1 shadow-xxs">
                         🚘 {selectedInvoice.clientVehicle}
                       </p>
-                      
-                      {(selectedInvoice.vehicleBrand || selectedInvoice.vehicleModel || selectedInvoice.vehicleRegistration || selectedInvoice.vehicleMileage) && (
-                        <div className="mt-2 p-2 bg-white border border-gray-150 rounded-lg text-[11px] space-y-0.5 text-left">
-                          <p className="text-[#3c414c] font-black uppercase text-[8px] tracking-wider mb-1">Détails Véhicule sur la Facture :</p>
-                          {selectedInvoice.vehicleBrand && <p><span className="font-semibold text-gray-500">Marque :</span> {selectedInvoice.vehicleBrand}</p>}
-                          {selectedInvoice.vehicleModel && <p><span className="font-semibold text-gray-500">Modèle :</span> {selectedInvoice.vehicleModel}</p>}
-                          {selectedInvoice.vehicleRegistration && <p><span className="font-semibold text-gray-500">Immatriculation :</span> {selectedInvoice.vehicleRegistration}</p>}
-                          {selectedInvoice.vehicleMileage && <p><span className="font-semibold text-gray-500">Kilométrage :</span> {selectedInvoice.vehicleMileage} km</p>}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -617,24 +552,6 @@ export default function InvoiceManager({
                   </div>
                 </div>
 
-                {/* Public and Private Notes inside App */}
-                {(selectedInvoice.publicNotes || selectedInvoice.privateNotes) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-150">
-                    {selectedInvoice.publicNotes && (
-                      <div className="p-3.5 bg-blue-50/40 border border-blue-100 rounded-xl text-left">
-                        <span className="text-[10px] uppercase font-black text-blue-500 block mb-1">📝 NOTE PUBLIQUE (Sur PDF Devis/Facture)</span>
-                        <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed">{selectedInvoice.publicNotes}</p>
-                      </div>
-                    )}
-                    {selectedInvoice.privateNotes && (
-                      <div className="p-3.5 bg-rose-50/40 border border-rose-100 rounded-xl text-left">
-                        <span className="text-[10px] uppercase font-black text-rose-500 block mb-1">🔒 NOTE PRIVÉE (Uniquement visible sur l'app)</span>
-                        <p className="text-xs text-rose-700 whitespace-pre-wrap leading-relaxed">{selectedInvoice.privateNotes}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
               </div>
 
             </div>
@@ -708,90 +625,6 @@ export default function InvoiceManager({
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="w-full bg-white border border-gray-200 rounded-lg text-xs p-2"
-                  />
-                </div>
-              </div>
-
-              {/* Vehicle detailed info at document creation */}
-              <div className="bg-slate-50 border border-slate-150 rounded-xl p-3.5 space-y-3">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block text-left">🚗 INFORMATIONS SPÉCIFIQUES DU VÉHICULE (SUR CETTE FACTURE)</span>
-                
-                {(() => {
-                  const currentSelectedCl = clients.find(c => c.id === selectedClientId);
-                  if (currentSelectedCl?.vehicle) {
-                    return (
-                      <p className="text-[10px] text-gray-500 italic mt-[-4px] text-left">
-                        Note : Le véhicule principal renseigné sur la fiche client est : <span className="font-bold text-slate-700">{currentSelectedCl.vehicle}</span>
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-left">
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase">Marque</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Peugeot"
-                      value={vehicleBrand}
-                      onChange={(e) => setVehicleBrand(e.target.value)}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs p-1.8 outline-none font-sans"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase">Modèle</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: 208"
-                      value={vehicleModel}
-                      onChange={(e) => setVehicleModel(e.target.value)}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs p-1.8 outline-none font-sans"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase">Immatriculation</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: 12345-A-6"
-                      value={vehicleRegistration}
-                      onChange={(e) => setVehicleRegistration(e.target.value)}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs p-1.8 outline-none font-sans"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase">Kilométrage</label>
-                    <input
-                      type="text"
-                      placeholder="Ex: 142000"
-                      value={vehicleMileage}
-                      onChange={(e) => setVehicleMileage(e.target.value)}
-                      className="w-full bg-white border border-gray-200 rounded-lg text-xs p-1.8 outline-none font-sans"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Double Notes: Public & Private Notes */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-slate-50/50 p-3.5 border border-slate-100 rounded-xl text-left">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block text-left">📝 NOTE PUBLIQUE (S'affiche sur le PDF Facture)</span>
-                  <textarea
-                    rows={2.5}
-                    placeholder="Ex: Garantie de 6 mois sur les pièces installées..."
-                    value={publicNotes}
-                    onChange={(e) => setPublicNotes(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg text-xs p-1.8 outline-none font-sans resize-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest block font-sans text-left">🔒 NOTE PRIVÉE (Visible uniquement sur l'app)</span>
-                  <textarea
-                    rows={2.5}
-                    placeholder="Ex: Client très pointilleux, a demandé de faire attention aux jantes..."
-                    value={privateNotes}
-                    onChange={(e) => setPrivateNotes(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg text-xs p-1.8 outline-none font-sans resize-none"
                   />
                 </div>
               </div>
@@ -1031,20 +864,6 @@ export default function InvoiceManager({
                   <span className="text-xxs text-gray-400 font-extrabold uppercase tracking-widest">Total Net de l'intervention (TTC)</span>
                   <div className="text-xl font-black text-rose-450 text-amber-300">{calcTTC().toFixed(2)} {currency}</div>
                 </div>
-              </div>
-
-              {/* Toggle option for Bon de Livraison */}
-              <div className="flex items-center gap-2.5 p-3.5 bg-emerald-50/40 border border-emerald-100/80 rounded-xl text-left">
-                <input
-                  type="checkbox"
-                  id="generateBLOnInvoiceCreation"
-                  checked={generateBLOnInvoiceCreation}
-                  onChange={(e) => setGenerateBLOnInvoiceCreation(e.target.checked)}
-                  className="h-4.5 w-4.5 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 cursor-pointer accent-emerald-600"
-                />
-                <label htmlFor="generateBLOnInvoiceCreation" className="text-xxs font-bold text-slate-700 cursor-pointer select-none">
-                  Générer et télécharger également le <span className="text-emerald-600 font-black">Bon de livraison (BL) physique</span> associé à cette facture
-                </label>
               </div>
 
               {/* Actions submit */}

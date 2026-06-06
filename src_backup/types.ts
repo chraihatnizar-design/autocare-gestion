@@ -33,33 +33,6 @@ export interface Client {
   vehicle: string;
   plate: string;
   address: string;
-  clientType?: 'Particulier' | 'Professionnel';
-}
-
-export interface Quote {
-  id: string;
-  quoteNumber: string; // Dynamic unique sequenced ID (e.g. DEVIS-2026-001)
-  clientId: string;
-  clientName: string;
-  clientEmail: string;
-  clientPhone: string;
-  clientVehicle: string;
-  // Vehicle details at document creation
-  vehicleMileage?: string;
-  vehicleBrand?: string;
-  vehicleModel?: string;
-  vehicleRegistration?: string;
-  // Double notes system
-  publicNotes?: string;
-  privateNotes?: string;
-  date: string;
-  validUntil: string;
-  items: InvoiceItem[];
-  discount: number; // percentage
-  taxRate: number; // percentage (e.g. 20%)
-  total: number;
-  status: 'Pending' | 'Accepted' | 'Rejected';
-  invoiceId?: string; // Links to invoice if converted
 }
 
 export type InterventionType = 'Entretien' | 'Freinage' | 'Panne' | 'Diagnostic' | 'Pneumatique' | 'Autre';
@@ -99,14 +72,6 @@ export interface Invoice {
   clientEmail: string;
   clientPhone: string;
   clientVehicle: string;
-  // Vehicle details at document creation
-  vehicleMileage?: string;
-  vehicleBrand?: string;
-  vehicleModel?: string;
-  vehicleRegistration?: string;
-  // Double notes system
-  publicNotes?: string;
-  privateNotes?: string;
   date: string;
   dueDate: string;
   items: InvoiceItem[];
@@ -117,8 +82,6 @@ export interface Invoice {
   paymentMethod: PaymentMethod;
   paymentDate?: string;
   interventionId?: string;
-  quoteId?: string;
-  quoteNumber?: string;
 }
 
 export interface ReminderLog {

@@ -1,3 +1,4 @@
+<h1 style={{color:'red'}}>VERSION TEST 2026 OK</h1>
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
