@@ -21,7 +21,7 @@ import {
   Receipt
 } from 'lucide-react';
 
-import { StockItem, Client, Intervention, Invoice, ReminderLog, StockTransaction, InvoiceStatus, PaymentMethod, InterventionStatus, AppSettings, AppUser, Supplier, SupplierOrder, MonthlyExpense } from './types';
+import { StockItem, Client, Intervention, Invoice, ReminderLog, StockTransaction, InvoiceStatus, PaymentMethod, InterventionStatus, AppSettings, AppUser, Supplier, SupplierOrder, MonthlyExpense, Quote } from './types';
 import { 
   DEFAULT_STOCK, 
   DEFAULT_CLIENTS, 
@@ -67,6 +67,7 @@ export default function App() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierOrders, setSupplierOrders] = useState<SupplierOrder[]>([]);
   const [expenses, setExpenses] = useState<MonthlyExpense[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
 
   // States of login and user management
   const [users, setUsers] = useState<AppUser[]>(() => {
@@ -143,6 +144,7 @@ export default function App() {
     const savedSuppliers = localStorage.getItem('autocare_suppliers_list');
     const savedSupplierOrders = localStorage.getItem('autocare_supplier_orders_all');
     const savedExpenses = localStorage.getItem('autocare_expenses_all');
+    const savedQuotes = localStorage.getItem('autocare_quotes');
 
     setStock(savedStock ? JSON.parse(savedStock) : DEFAULT_STOCK);
     setClients(savedClients ? JSON.parse(savedClients) : DEFAULT_CLIENTS);
@@ -153,6 +155,7 @@ export default function App() {
     setSuppliers(savedSuppliers ? JSON.parse(savedSuppliers) : DEFAULT_SUPPLIERS);
     setSupplierOrders(savedSupplierOrders ? JSON.parse(savedSupplierOrders) : DEFAULT_SUPPLIER_ORDERS);
     setExpenses(savedExpenses ? JSON.parse(savedExpenses) : DEFAULT_EXPENSES);
+    setQuotes(savedQuotes ? JSON.parse(savedQuotes) : []);
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings));
     }
@@ -252,8 +255,119 @@ export default function App() {
     saveToLocalStorage('meca_clients', updated);
   };
 
+  // --- Handlers: Quotes / Devis (sequential numbered) ---
+  const handleAddQuote = (newQuote: Omit<Quote, 'id' | 'quoteNumber' | 'status'>) => {
+    const nextSeq = quotes.length + 1;
+    const formattedSeq = nextSeq.toString().padStart(3, '0');
+    const formattedQuoteNo = `DEVIS-2026-${formattedSeq}`;
+
+    const createdQuote: Quote = {
+      ...newQuote,
+      id: 'qte-' + Math.random().toString(36).substr(2, 9),
+      quoteNumber: formattedQuoteNo,
+      status: 'Pending'
+    };
+
+    const updatedQuotes = [createdQuote, ...quotes];
+    setQuotes(updatedQuotes);
+    saveToLocalStorage('meca_quotes', updatedQuotes);
+    return createdQuote;
+  };
+
+  const handleUpdateQuoteStatus = (quoteId: string, status: 'Pending' | 'Accepted' | 'Rejected') => {
+    const updated = quotes.map(q => {
+      if (q.id === quoteId) {
+        return { ...q, status };
+      }
+      return q;
+    });
+    setQuotes(updated);
+    saveToLocalStorage('meca_quotes', updated);
+  };
+
+  const handleConvertQuoteToInvoice = (quoteId: string) => {
+    const quote = quotes.find(q => q.id === quoteId);
+    if (!quote) return;
+
+    // Check if progress or already converted
+    if (quote.invoiceId) return;
+
+    // Generate Invoice
+    const nextSeq = invoices.length + 1;
+    const formattedSeq = nextSeq.toString().padStart(3, '0');
+    const formattedInvoiceNo = `FACT-2026-${formattedSeq}`;
+    const invoiceId = 'inv-' + Math.random().toString(36).substr(2, 9);
+
+    const createdInvoice: Invoice = {
+      id: invoiceId,
+      invoiceNumber: formattedInvoiceNo,
+      clientId: quote.clientId,
+      clientName: quote.clientName,
+      clientEmail: quote.clientEmail,
+      clientPhone: quote.clientPhone,
+      clientVehicle: quote.clientVehicle,
+      date: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 15 days default
+      items: quote.items,
+      discount: quote.discount,
+      taxRate: quote.taxRate,
+      total: quote.total,
+      status: 'Unpaid',
+      paymentMethod: 'Pending',
+      quoteId: quote.id,
+      quoteNumber: quote.quoteNumber
+    };
+
+    // Update quote status and link invoice
+    const updatedQuotes = quotes.map(q => {
+      if (q.id === quoteId) {
+        return { ...q, status: 'Accepted' as const, invoiceId };
+      }
+      return q;
+    });
+    setQuotes(updatedQuotes);
+    saveToLocalStorage('meca_quotes', updatedQuotes);
+
+    // Save invoice
+    const updatedInvoices = [createdInvoice, ...invoices];
+    setInvoices(updatedInvoices);
+    saveToLocalStorage('meca_invoices', updatedInvoices);
+
+    // Stock deduction like in direct invoices
+    let updatedStock = [...stock];
+    let collectedTx = [...transactions];
+
+    createdInvoice.items.forEach(item => {
+      if (item.type === 'Part' && item.partId) {
+        updatedStock = updatedStock.map(p => {
+          if (p.id === item.partId) {
+            const finalQty = Math.max(0, p.quantity - item.quantity);
+            
+            collectedTx.unshift({
+              id: 'tx-' + Math.random().toString(36).substr(2, 9),
+              itemId: p.id,
+              itemName: p.name,
+              type: 'OUT',
+              quantity: item.quantity,
+              date: createdInvoice.date,
+              reason: `Automatique : Pose sur ${createdInvoice.clientVehicle} #${formattedInvoiceNo} (Devis accepté #${quote.quoteNumber})`
+            });
+
+            return { ...p, quantity: finalQty };
+          }
+          return p;
+        });
+      }
+    });
+
+    setStock(updatedStock);
+    saveToLocalStorage('meca_stock', updatedStock);
+    setTransactions(collectedTx);
+    saveToLocalStorage('meca_transactions', collectedTx);
+  };
+
   // --- Handlers: Invoices (sequential numbered) ---
-  const handleAddInvoice = (newInvoice: Omit<Invoice, 'id' | 'invoiceNumber'>) => {
+  const handleAddInvoice = (newInvoice: Omit<Invoice, 'id' | 'invoiceNumber'>): Invoice => {
     // Generate sequential custom invoice number starting FACT-2026-004
     const nextSeq = invoices.length + 1;
     const formattedSeq = nextSeq.toString().padStart(3, '0');
@@ -323,6 +437,8 @@ export default function App() {
       setInterventions(updatedInterventions);
       saveToLocalStorage('meca_interventions', updatedInterventions);
     }
+
+    return createdInvoice;
   };
 
   const handleUpdateInvoiceStatus = (id: string, status: InvoiceStatus, method: PaymentMethod) => {
@@ -766,9 +882,15 @@ export default function App() {
             invoices={invoices}
             interventions={interventions}
             reminderLogs={reminderLogs}
+            quotes={quotes}
+            stock={stock}
             onAddClient={handleAddClient}
             onUpdateClient={handleUpdateClient}
             onSendReminder={handleSendReminder}
+            onAddQuote={handleAddQuote}
+            onUpdateQuoteStatus={handleUpdateQuoteStatus}
+            onConvertQuoteToInvoice={handleConvertQuoteToInvoice}
+            onAddInvoice={handleAddInvoice}
             settings={settings}
           />
         )}
