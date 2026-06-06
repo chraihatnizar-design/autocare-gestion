@@ -1,3 +1,4 @@
+import { supabase } from './lib/supabase'
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -159,7 +160,22 @@ export default function App() {
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings));
     }
-  }, []);
+ const loadClientsFromSupabase = async () => {
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+
+  if (error) {
+    console.error('Erreur chargement clients:', error)
+    return
+  }
+
+  if (data) {
+    setClients(data)
+  }
+}
+
+loadClientsFromSupabase() }, []);
 
   // 2. Synchronize persistence states
   const saveToLocalStorage = (key: string, data: any) => {
