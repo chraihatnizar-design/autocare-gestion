@@ -1,4 +1,3 @@
-import { supabase } from './lib/supabase'
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -49,6 +48,9 @@ import SupplierManager from './components/SupplierManager';
 import ExpenseManager from './components/ExpenseManager';
 import Login from './components/Login';
 
+// Supabase Imports
+import { supabase, isSupabaseConfigured } from './utils/supabaseClient';
+
 export default function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -80,6 +82,224 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Sync state trackers
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [supabaseConnected, setSupabaseConnected] = useState(false);
+
+  // Synchronize and download all data from Supabase DB on initialization
+  const refreshFromSupabase = async () => {
+    if (!isSupabaseConfigured()) {
+      return;
+    }
+    setIsSyncing(true);
+    setSupabaseConnected(true);
+    try {
+      // 1. Clients
+      const { data: dbClients, error: clientsErr } = await supabase.from('clients').select('*');
+      if (dbClients && !clientsErr) {
+        if (dbClients.length > 0) {
+          setClients(dbClients);
+        } else {
+          // Table completely empty -> Auto Seed
+          await supabase.from('clients').insert(DEFAULT_CLIENTS);
+          setClients(DEFAULT_CLIENTS);
+        }
+      }
+
+      // 2. Stock
+      const { data: dbStock, error: stockErr } = await supabase.from('stock').select('*');
+      if (dbStock && !stockErr) {
+        if (dbStock.length > 0) {
+          const mapped = dbStock.map(p => ({
+            ...p,
+            quantity: Number(p.quantity),
+            minThreshold: Number(p.minThreshold),
+            priceBuy: Number(p.priceBuy),
+            priceSell: Number(p.priceSell)
+          }));
+          setStock(mapped);
+        } else {
+          await supabase.from('stock').insert(DEFAULT_STOCK);
+          setStock(DEFAULT_STOCK);
+        }
+      }
+
+      // 3. Transactions
+      const { data: dbTx, error: txErr } = await supabase.from('stock_transactions').select('*');
+      if (dbTx && !txErr) {
+        if (dbTx.length > 0) {
+          const mapped = dbTx.map(t => ({
+            ...t,
+            quantity: Number(t.quantity)
+          })).sort((a, b) => b.date.localeCompare(a.date));
+          setTransactions(mapped);
+        } else {
+          await supabase.from('stock_transactions').insert(DEFAULT_TRANSACTIONS);
+          setTransactions(DEFAULT_TRANSACTIONS);
+        }
+      }
+
+      // 4. Users
+      const { data: dbUsers, error: usersErr } = await supabase.from('users').select('*');
+      if (dbUsers && !usersErr) {
+        if (dbUsers.length > 0) {
+          setUsers(dbUsers);
+        } else {
+          await supabase.from('users').insert(DEFAULT_USERS);
+          setUsers(DEFAULT_USERS);
+        }
+      }
+
+      // 5. Interventions / Planning
+      const { data: dbInter, error: interErr } = await supabase.from('interventions').select('*');
+      if (dbInter && !interErr) {
+        if (dbInter.length > 0) {
+          const mapped = dbInter.map(i => ({
+            ...i,
+            priceEstimated: Number(i.priceEstimated)
+          }));
+          setInterventions(mapped);
+        } else {
+          await supabase.from('interventions').insert(DEFAULT_INTERVENTIONS);
+          setInterventions(DEFAULT_INTERVENTIONS);
+        }
+      }
+
+      // 6. Quotes / Devis
+      const { data: dbQuotes, error: quotesErr } = await supabase.from('quotes').select('*');
+      if (dbQuotes && !quotesErr) {
+        const mapped = dbQuotes.map(q => ({
+          ...q,
+          discount: Number(q.discount),
+          taxRate: Number(q.taxRate),
+          total: Number(q.total),
+          items: (typeof q.items === 'string' ? JSON.parse(q.items) : q.items) || []
+        }));
+        setQuotes(mapped);
+      }
+
+      // 7. Invoices / Factures
+      const { data: dbInvoices, error: invoicesErr } = await supabase.from('invoices').select('*');
+      if (dbInvoices && !invoicesErr) {
+        if (dbInvoices.length > 0) {
+          const mapped = dbInvoices.map(inv => ({
+            ...inv,
+            discount: Number(inv.discount),
+            taxRate: Number(inv.taxRate),
+            total: Number(inv.total),
+            items: (typeof inv.items === 'string' ? JSON.parse(inv.items) : inv.items) || []
+          }));
+          setInvoices(mapped);
+        } else {
+          const mockInvoicesWithSerializedItems = DEFAULT_INVOICES.map(inv => ({
+            ...inv,
+            items: inv.items // Supabase JS will serialize JSONB automatically
+          }));
+          await supabase.from('invoices').insert(mockInvoicesWithSerializedItems);
+          setInvoices(DEFAULT_INVOICES);
+        }
+      }
+
+      // 8. Reminders Logs
+      const { data: dbRem, error: remErr } = await supabase.from('reminders').select('*');
+      if (dbRem && !remErr) {
+        if (dbRem.length > 0) {
+          setReminderLogs(dbRem);
+        } else {
+          await supabase.from('reminders').insert(DEFAULT_REMINDERS);
+          setReminderLogs(DEFAULT_REMINDERS);
+        }
+      }
+
+      // 9. Suppliers
+      const { data: dbSup, error: supErr } = await supabase.from('suppliers').select('*');
+      if (dbSup && !supErr) {
+        if (dbSup.length > 0) {
+          setSuppliers(dbSup);
+        } else {
+          await supabase.from('suppliers').insert(DEFAULT_SUPPLIERS);
+          setSuppliers(DEFAULT_SUPPLIERS);
+        }
+      }
+
+      // 10. Supplier Orders
+      const { data: dbSupOrd, error: supOrdErr } = await supabase.from('supplier_orders').select('*');
+      if (dbSupOrd && !supOrdErr) {
+        if (dbSupOrd.length > 0) {
+          const mapped = dbSupOrd.map(o => ({
+            ...o,
+            priceHT: Number(o.priceHT),
+            taxRate: Number(o.taxRate),
+            totalTTC: Number(o.totalTTC),
+            paidAmount: o.paidAmount ? Number(o.paidAmount) : undefined
+          }));
+          setSupplierOrders(mapped);
+        } else {
+          await supabase.from('supplier_orders').insert(DEFAULT_SUPPLIER_ORDERS);
+          setSupplierOrders(DEFAULT_SUPPLIER_ORDERS);
+        }
+      }
+
+      // 11. Expenses
+      const { data: dbExp, error: expErr } = await supabase.from('expenses').select('*');
+      if (dbExp && !expErr) {
+        if (dbExp.length > 0) {
+          const mapped = dbExp.map(e => ({
+            ...e,
+            amount: Number(e.amount)
+          }));
+          setExpenses(mapped);
+        } else {
+          await supabase.from('expenses').insert(DEFAULT_EXPENSES);
+          setExpenses(DEFAULT_EXPENSES);
+        }
+      }
+
+      // 12. Settings
+      const { data: dbSettings, error: setErr } = await supabase.from('settings').select('*').eq('id', 'global').maybeSingle();
+      if (dbSettings && !setErr) {
+        setSettings({
+          companyName: dbSettings.company_name || DEFAULT_SETTINGS.companyName,
+          companyTagline: dbSettings.company_tagline || DEFAULT_SETTINGS.companyTagline,
+          companyLogo: dbSettings.company_logo || DEFAULT_SETTINGS.companyLogo,
+          userName: dbSettings.user_name || DEFAULT_SETTINGS.userName,
+          userRole: dbSettings.user_role || DEFAULT_SETTINGS.userRole,
+          userPhone: dbSettings.user_phone || DEFAULT_SETTINGS.userPhone,
+          companyEmail: dbSettings.company_email || DEFAULT_SETTINGS.companyEmail,
+          companyPhone: dbSettings.company_phone || DEFAULT_SETTINGS.companyPhone,
+          companyAddress: dbSettings.company_address || DEFAULT_SETTINGS.companyAddress,
+          companyCapital: dbSettings.company_capital || DEFAULT_SETTINGS.companyCapital,
+          companyIce: dbSettings.company_ice || DEFAULT_SETTINGS.companyIce,
+          companyCity: dbSettings.company_city || DEFAULT_SETTINGS.companyCity,
+          defaultTaxRate: Number(dbSettings.default_tax_rate) || DEFAULT_SETTINGS.defaultTaxRate,
+          currency: dbSettings.currency || DEFAULT_SETTINGS.currency,
+        });
+      } else if (!dbSettings) {
+        await supabase.from('settings').insert({
+          id: 'global',
+          company_name: DEFAULT_SETTINGS.companyName,
+          company_tagline: DEFAULT_SETTINGS.companyTagline,
+          company_logo: DEFAULT_SETTINGS.companyLogo,
+          user_name: DEFAULT_SETTINGS.userName,
+          user_role: DEFAULT_SETTINGS.userRole,
+          user_phone: DEFAULT_SETTINGS.userPhone,
+          company_email: DEFAULT_SETTINGS.companyEmail,
+          company_phone: DEFAULT_SETTINGS.companyPhone,
+          company_address: DEFAULT_SETTINGS.companyAddress,
+          company_capital: DEFAULT_SETTINGS.companyCapital,
+          company_ice: DEFAULT_SETTINGS.companyIce,
+          company_city: DEFAULT_SETTINGS.companyCity,
+          default_tax_rate: DEFAULT_SETTINGS.defaultTaxRate,
+          currency: DEFAULT_SETTINGS.currency,
+        });
+      }
+    } catch (e) {
+      console.error('Erreur lors de la synchronisation Supabase:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // --- Handlers: User Accounts & Sessions ---
   const handleAddUser = (newUser: Omit<AppUser, 'id'>): { success: boolean; error?: string } => {
     const exists = users.some(u => u.username.toLowerCase() === newUser.username.toLowerCase());
@@ -101,6 +321,13 @@ export default function App() {
     const updated = [...users, createdUser];
     setUsers(updated);
     localStorage.setItem('autocare_users', JSON.stringify(updated));
+
+    if (isSupabaseConfigured()) {
+      supabase.from('users').insert(createdUser).then(({ error }) => {
+        if (error) console.error('Echec sauvegarde utilisateur sur Supabase:', error);
+      });
+    }
+
     return { success: true };
   };
 
@@ -108,6 +335,12 @@ export default function App() {
     const updated = users.filter(u => u.id !== id);
     setUsers(updated);
     localStorage.setItem('autocare_users', JSON.stringify(updated));
+
+    if (isSupabaseConfigured()) {
+      supabase.from('users').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec suppression utilisateur sur Supabase:', error);
+      });
+    }
   };
 
   const handleLoginSuccess = (user: AppUser) => {
@@ -126,6 +359,29 @@ export default function App() {
     };
     setSettings(updatedSettings);
     localStorage.setItem('autocare_settings', JSON.stringify(updatedSettings));
+
+    // Upsert settings in Supabase to sync across devices if desired
+    if (isSupabaseConfigured()) {
+      supabase.from('settings').upsert({
+        id: 'global',
+        company_name: updatedSettings.companyName,
+        company_tagline: updatedSettings.companyTagline,
+        company_logo: updatedSettings.companyLogo,
+        user_name: updatedSettings.userName,
+        user_role: updatedSettings.userRole,
+        user_phone: updatedSettings.userPhone,
+        company_email: updatedSettings.companyEmail,
+        company_phone: updatedSettings.companyPhone,
+        company_address: updatedSettings.companyAddress,
+        company_capital: updatedSettings.companyCapital,
+        company_ice: updatedSettings.companyIce,
+        company_city: updatedSettings.companyCity,
+        default_tax_rate: updatedSettings.defaultTaxRate,
+        currency: updatedSettings.currency,
+      }).then(({ error }) => {
+        if (error) console.error('Echec sauvegarde active settings sur Supabase:', error);
+      });
+    }
   };
 
   const handleLogout = () => {
@@ -160,22 +416,10 @@ export default function App() {
     if (savedSettings) {
       setSettings(JSON.parse(savedSettings));
     }
- const loadClientsFromSupabase = async () => {
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
 
-  if (error) {
-    console.error('Erreur chargement clients:', error)
-    return
-  }
-
-  if (data) {
-    setClients(data)
-  }
-}
-
-loadClientsFromSupabase() }, []);
+    // Direct Sync with Cloud DB
+    refreshFromSupabase();
+  }, []);
 
   // 2. Synchronize persistence states
   const saveToLocalStorage = (key: string, data: any) => {
@@ -187,11 +431,55 @@ loadClientsFromSupabase() }, []);
   const handleUpdateSettings = (newSettings: AppSettings) => {
     setSettings(newSettings);
     saveToLocalStorage('meca_settings', newSettings);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('settings').upsert({
+        id: 'global',
+        company_name: newSettings.companyName,
+        company_tagline: newSettings.companyTagline,
+        company_logo: newSettings.companyLogo,
+        user_name: newSettings.userName,
+        user_role: newSettings.userRole,
+        user_phone: newSettings.userPhone,
+        company_email: newSettings.companyEmail,
+        company_phone: newSettings.companyPhone,
+        company_address: newSettings.companyAddress,
+        company_capital: newSettings.companyCapital,
+        company_ice: newSettings.companyIce,
+        company_city: newSettings.companyCity,
+        default_tax_rate: newSettings.defaultTaxRate,
+        currency: newSettings.currency,
+      }).then(({ error }) => {
+        if (error) console.error('Echec sauvegarde settings sur Supabase:', error);
+      });
+    }
   };
 
   const handleResetSettings = () => {
     setSettings(DEFAULT_SETTINGS);
     saveToLocalStorage('meca_settings', DEFAULT_SETTINGS);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('settings').upsert({
+        id: 'global',
+        company_name: DEFAULT_SETTINGS.companyName,
+        company_tagline: DEFAULT_SETTINGS.companyTagline,
+        company_logo: DEFAULT_SETTINGS.companyLogo,
+        user_name: DEFAULT_SETTINGS.userName,
+        user_role: DEFAULT_SETTINGS.userRole,
+        user_phone: DEFAULT_SETTINGS.userPhone,
+        company_email: DEFAULT_SETTINGS.companyEmail,
+        company_phone: DEFAULT_SETTINGS.companyPhone,
+        company_address: DEFAULT_SETTINGS.companyAddress,
+        company_capital: DEFAULT_SETTINGS.companyCapital,
+        company_ice: DEFAULT_SETTINGS.companyIce,
+        company_city: DEFAULT_SETTINGS.companyCity,
+        default_tax_rate: DEFAULT_SETTINGS.defaultTaxRate,
+        currency: DEFAULT_SETTINGS.currency,
+      }).then(({ error }) => {
+        if (error) console.error('Echec réinitialisation settings sur Supabase:', error);
+      });
+    }
   };
 
   // --- Handlers: Inventory (Stock) ---
@@ -217,16 +505,28 @@ loadClientsFromSupabase() }, []);
     const updatedTx = [tx, ...transactions];
     setTransactions(updatedTx);
     saveToLocalStorage('meca_transactions', updatedTx);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('stock').insert(createdItem).then(({ error }) => {
+        if (error) console.error('Echec sauvegarde article stock sur Supabase:', error);
+      });
+      supabase.from('stock_transactions').insert(tx).then(({ error }) => {
+        if (error) console.error('Echec sauvegarde transaction initiale sur Supabase:', error);
+      });
+    }
   };
 
   const handleUpdateStockQuantity = (id: string, quantityChange: number, reason: string) => {
+    let finalQty = 0;
+    let createdTx: StockTransaction | null = null;
+
     const updated = stock.map(item => {
       if (item.id === id) {
         // Enforce boundary 0
-        const finalQty = Math.max(0, item.quantity + quantityChange);
+        finalQty = Math.max(0, item.quantity + quantityChange);
         
         // Log transaction movement
-        const tx: StockTransaction = {
+        createdTx = {
           id: 'tx-' + Math.random().toString(36).substr(2, 9),
           itemId: item.id,
           itemName: item.name,
@@ -235,9 +535,6 @@ loadClientsFromSupabase() }, []);
           date: '2026-06-06',
           reason: reason
         };
-        const updatedTx = [tx, ...transactions];
-        setTransactions(updatedTx);
-        saveToLocalStorage('meca_transactions', updatedTx);
 
         return { ...item, quantity: finalQty };
       }
@@ -246,12 +543,35 @@ loadClientsFromSupabase() }, []);
 
     setStock(updated);
     saveToLocalStorage('meca_stock', updated);
+
+    if (createdTx) {
+      const updatedTx = [createdTx, ...transactions];
+      setTransactions(updatedTx);
+      saveToLocalStorage('meca_transactions', updatedTx);
+    }
+
+    if (isSupabaseConfigured()) {
+      supabase.from('stock').update({ quantity: finalQty }).eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec mise à jour quantité stock sur Supabase:', error);
+      });
+      if (createdTx) {
+        supabase.from('stock_transactions').insert(createdTx).then(({ error }) => {
+          if (error) console.error('Echec insert transaction stock sur Supabase:', error);
+        });
+      }
+    }
   };
 
   const handleDeleteStockItem = (id: string) => {
     const updated = stock.filter(item => item.id !== id);
     setStock(updated);
     saveToLocalStorage('meca_stock', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('stock').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec suppression stock sur Supabase:', error);
+      });
+    }
   };
 
   // --- Handlers: Clients ---
@@ -263,12 +583,24 @@ loadClientsFromSupabase() }, []);
     const updated = [createdClient, ...clients];
     setClients(updated);
     saveToLocalStorage('meca_clients', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('clients').insert(createdClient).then(({ error }) => {
+        if (error) console.error('Echec sauvegarde client sur Supabase:', error);
+      });
+    }
   };
 
   const handleUpdateClient = (updatedClient: Client) => {
     const updated = clients.map(c => c.id === updatedClient.id ? updatedClient : c);
     setClients(updated);
     saveToLocalStorage('meca_clients', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('clients').update(updatedClient).eq('id', updatedClient.id).then(({ error }) => {
+        if (error) console.error('Echec mise à jour client sur Supabase:', error);
+      });
+    }
   };
 
   // --- Handlers: Quotes / Devis (sequential numbered) ---
@@ -287,6 +619,16 @@ loadClientsFromSupabase() }, []);
     const updatedQuotes = [createdQuote, ...quotes];
     setQuotes(updatedQuotes);
     saveToLocalStorage('meca_quotes', updatedQuotes);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('quotes').insert({
+        ...createdQuote,
+        items: createdQuote.items // Supabase handles JSON arrays automatically
+      }).then(({ error }) => {
+        if (error) console.error('Echec sauvegarde devis sur Supabase:', error);
+      });
+    }
+
     return createdQuote;
   };
 
@@ -299,6 +641,12 @@ loadClientsFromSupabase() }, []);
     });
     setQuotes(updated);
     saveToLocalStorage('meca_quotes', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('quotes').update({ status }).eq('id', quoteId).then(({ error }) => {
+        if (error) console.error('Echec mise à jour statut devis sur Supabase:', error);
+      });
+    }
   };
 
   const handleConvertQuoteToInvoice = (quoteId: string) => {
@@ -331,7 +679,13 @@ loadClientsFromSupabase() }, []);
       status: 'Unpaid',
       paymentMethod: 'Pending',
       quoteId: quote.id,
-      quoteNumber: quote.quoteNumber
+      quoteNumber: quote.quoteNumber,
+      vehicleMileage: quote.vehicleMileage,
+      vehicleBrand: quote.vehicleBrand,
+      vehicleModel: quote.vehicleModel,
+      vehicleRegistration: quote.vehicleRegistration,
+      publicNotes: quote.publicNotes,
+      privateNotes: quote.privateNotes
     };
 
     // Update quote status and link invoice
@@ -352,14 +706,15 @@ loadClientsFromSupabase() }, []);
     // Stock deduction like in direct invoices
     let updatedStock = [...stock];
     let collectedTx = [...transactions];
+    const dbTxToInsert: StockTransaction[] = [];
+    const itemStockToUpdate: { id: string; qty: number }[] = [];
 
     createdInvoice.items.forEach(item => {
       if (item.type === 'Part' && item.partId) {
         updatedStock = updatedStock.map(p => {
           if (p.id === item.partId) {
             const finalQty = Math.max(0, p.quantity - item.quantity);
-            
-            collectedTx.unshift({
+            const tx: StockTransaction = {
               id: 'tx-' + Math.random().toString(36).substr(2, 9),
               itemId: p.id,
               itemName: p.name,
@@ -367,7 +722,11 @@ loadClientsFromSupabase() }, []);
               quantity: item.quantity,
               date: createdInvoice.date,
               reason: `Automatique : Pose sur ${createdInvoice.clientVehicle} #${formattedInvoiceNo} (Devis accepté #${quote.quoteNumber})`
-            });
+            };
+            
+            collectedTx.unshift(tx);
+            dbTxToInsert.push(tx);
+            itemStockToUpdate.push({ id: p.id, qty: finalQty });
 
             return { ...p, quantity: finalQty };
           }
@@ -380,6 +739,30 @@ loadClientsFromSupabase() }, []);
     saveToLocalStorage('meca_stock', updatedStock);
     setTransactions(collectedTx);
     saveToLocalStorage('meca_transactions', collectedTx);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('quotes').update({ status: 'Accepted', invoiceId }).eq('id', quoteId).then(({ error }) => {
+        if (error) console.error('Echec conversion status devis sur Supabase:', error);
+      });
+      supabase.from('invoices').insert({
+        ...createdInvoice,
+        items: createdInvoice.items // JSON Auto-handled
+      }).then(({ error }) => {
+        if (error) console.error('Echec insert invoice sur Supabase:', error);
+      });
+
+      itemStockToUpdate.forEach(({ id, qty }) => {
+        supabase.from('stock').update({ quantity: qty }).eq('id', id).then(({ error }) => {
+          if (error) console.error('Echec update stock qt sur Supabase:', error);
+        });
+      });
+
+      if (dbTxToInsert.length > 0) {
+        supabase.from('stock_transactions').insert(dbTxToInsert).then(({ error }) => {
+          if (error) console.error('Echec insert stock transactions sur Supabase:', error);
+        });
+      }
+    }
   };
 
   // --- Handlers: Invoices (sequential numbered) ---
@@ -406,18 +789,6 @@ loadClientsFromSupabase() }, []);
       const invoiceUsage = createdInvoice.items.find(item => item.type === 'Part' && item.partId === part.id);
       if (invoiceUsage) {
         const finalQty = Math.max(0, part.quantity - invoiceUsage.quantity);
-
-        // Record a dedicated automated transaction log
-        const tx: StockTransaction = {
-          id: 'tx-' + Math.random().toString(36).substr(2, 9),
-          itemId: part.id,
-          itemName: part.name,
-          type: 'OUT',
-          quantity: invoiceUsage.quantity,
-          date: createdInvoice.date,
-          reason: `Vente d'intervention - Facture #${formattedInvoiceNo}`
-        };
-        // Use a lazy approach, we will update transactions locally
         return { ...part, quantity: finalQty };
       }
       return part;
@@ -428,10 +799,14 @@ loadClientsFromSupabase() }, []);
 
     // Collect and update transactions state
     let collectedTx = [...transactions];
+    const dbTxToInsert: StockTransaction[] = [];
+    const itemStockToUpdate: { id: string; qty: number }[] = [];
+
     createdInvoice.items.forEach(item => {
       if (item.type === 'Part' && item.partId) {
         const pRef = stock.find(p => p.id === item.partId);
-        collectedTx.unshift({
+        const finalQty = updatedStock.find(p => p.id === item.partId)?.quantity || 0;
+        const tx: StockTransaction = {
           id: 'tx-' + Math.random().toString(36).substr(2, 9),
           itemId: item.partId,
           itemName: pRef ? pRef.name : item.name,
@@ -439,19 +814,51 @@ loadClientsFromSupabase() }, []);
           quantity: item.quantity,
           date: createdInvoice.date,
           reason: `Automatique : Pose sur ${createdInvoice.clientVehicle} #${formattedInvoiceNo}`
-        });
+        };
+        collectedTx.unshift(tx);
+        dbTxToInsert.push(tx);
+        itemStockToUpdate.push({ id: item.partId, qty: finalQty });
       }
     });
     setTransactions(collectedTx);
     saveToLocalStorage('meca_transactions', collectedTx);
 
     // Look if invoice was created from a scheduled intervention, we optionally mark intervention as completed
+    let isInterventionUpdated = false;
     if (createdInvoice.interventionId) {
       const updatedInterventions = interventions.map(inter => 
         inter.id === createdInvoice.interventionId ? { ...inter, status: 'Completed' as const } : inter
       );
       setInterventions(updatedInterventions);
       saveToLocalStorage('meca_interventions', updatedInterventions);
+      isInterventionUpdated = true;
+    }
+
+    if (isSupabaseConfigured()) {
+      supabase.from('invoices').insert({
+        ...createdInvoice,
+        items: createdInvoice.items
+      }).then(({ error }) => {
+        if (error) console.error('Echec insert invoice sur Supabase:', error);
+      });
+
+      itemStockToUpdate.forEach(({ id, qty }) => {
+        supabase.from('stock').update({ quantity: qty }).eq('id', id).then(({ error }) => {
+          if (error) console.error('Echec update stock qt sur Supabase:', error);
+        });
+      });
+
+      if (dbTxToInsert.length > 0) {
+        supabase.from('stock_transactions').insert(dbTxToInsert).then(({ error }) => {
+          if (error) console.error('Echec insert transactions sur Supabase:', error);
+        });
+      }
+
+      if (isInterventionUpdated && createdInvoice.interventionId) {
+        supabase.from('interventions').update({ status: 'Completed' }).eq('id', createdInvoice.interventionId).then(({ error }) => {
+          if (error) console.error('Echec update intervention status sur Supabase:', error);
+        });
+      }
     }
 
     return createdInvoice;
@@ -463,6 +870,12 @@ loadClientsFromSupabase() }, []);
     );
     setInvoices(updated);
     saveToLocalStorage('meca_invoices', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('invoices').update({ status, paymentMethod: method, paymentDate: '2026-06-06' }).eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec update invoice status sur Supabase:', error);
+      });
+    }
   };
 
   // --- Handlers: Calendar Scheduling ---
@@ -474,6 +887,12 @@ loadClientsFromSupabase() }, []);
     const updated = [createdInter, ...interventions];
     setInterventions(updated);
     saveToLocalStorage('meca_interventions', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('interventions').insert(createdInter).then(({ error }) => {
+        if (error) console.error('Echec insert intervention sur Supabase:', error);
+      });
+    }
   };
 
   const handleUpdateInterventionStatus = (id: string, status: InterventionStatus) => {
@@ -482,6 +901,12 @@ loadClientsFromSupabase() }, []);
     );
     setInterventions(updated);
     saveToLocalStorage('meca_interventions', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('interventions').update({ status }).eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec update status intervention sur Supabase:', error);
+      });
+    }
   };
 
   // --- Handlers: Reminders Logs ---
@@ -495,6 +920,12 @@ loadClientsFromSupabase() }, []);
     const updated = [createdLog, ...reminderLogs];
     setReminderLogs(updated);
     saveToLocalStorage('meca_reminders', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('reminders').insert(createdLog).then(({ error }) => {
+        if (error) console.error('Echec insert reminder log sur Supabase:', error);
+      });
+    }
   };
 
   // --- Handlers: Suppliers ---
@@ -506,18 +937,36 @@ loadClientsFromSupabase() }, []);
     const updated = [created, ...suppliers];
     setSuppliers(updated);
     saveToLocalStorage('meca_suppliers_list', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('suppliers').insert(created).then(({ error }) => {
+        if (error) console.error('Echec insert supplier sur Supabase:', error);
+      });
+    }
   };
 
   const handleUpdateSupplier = (updatedSup: Supplier) => {
     const updated = suppliers.map(s => s.id === updatedSup.id ? updatedSup : s);
     setSuppliers(updated);
     saveToLocalStorage('meca_suppliers_list', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('suppliers').update(updatedSup).eq('id', updatedSup.id).then(({ error }) => {
+        if (error) console.error('Echec update supplier sur Supabase:', error);
+      });
+    }
   };
 
   const handleDeleteSupplier = (id: string) => {
     const updated = suppliers.filter(s => s.id !== id);
     setSuppliers(updated);
     saveToLocalStorage('meca_suppliers_list', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('suppliers').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec delete supplier sur Supabase:', error);
+      });
+    }
   };
 
   // --- Handlers: Supplier Orders ---
@@ -534,6 +983,12 @@ loadClientsFromSupabase() }, []);
     const updated = [created, ...supplierOrders];
     setSupplierOrders(updated);
     saveToLocalStorage('meca_supplier_orders_all', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('supplier_orders').insert(created).then(({ error }) => {
+        if (error) console.error('Echec insert supplier order sur Supabase:', error);
+      });
+    }
   };
 
   const handleUpdateSupplierOrderStatus = (
@@ -556,12 +1011,30 @@ loadClientsFromSupabase() }, []);
     );
     setSupplierOrders(updated);
     saveToLocalStorage('meca_supplier_orders_all', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('supplier_orders').update({
+        paymentStatus: status,
+        paymentMethod: method,
+        paymentDate: status === 'Paid' ? (paymentDate || '2026-06-06') : null,
+        paidAmount: status === 'Paid' ? (paidAmount !== undefined ? paidAmount : updated.find(o => o.id === id)?.totalTTC) : null,
+        paymentProofImage: status === 'Paid' ? paymentProofImage : null
+      }).eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec update status commande fournisseur sur Supabase:', error);
+      });
+    }
   };
 
   const handleDeleteSupplierOrder = (id: string) => {
     const updated = supplierOrders.filter(o => o.id !== id);
     setSupplierOrders(updated);
     saveToLocalStorage('meca_supplier_orders_all', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('supplier_orders').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec delete order sur Supabase:', error);
+      });
+    }
   };
 
   // --- Handlers: Monthly Expenses ---
@@ -573,18 +1046,36 @@ loadClientsFromSupabase() }, []);
     const updated = [created, ...expenses];
     setExpenses(updated);
     saveToLocalStorage('meca_expenses_all', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('expenses').insert(created).then(({ error }) => {
+        if (error) console.error('Echec insert expense sur Supabase:', error);
+      });
+    }
   };
 
   const handleUpdateExpense = (updatedExp: MonthlyExpense) => {
     const updated = expenses.map(e => e.id === updatedExp.id ? updatedExp : e);
     setExpenses(updated);
     saveToLocalStorage('meca_expenses_all', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('expenses').update(updatedExp).eq('id', updatedExp.id).then(({ error }) => {
+        if (error) console.error('Echec update expense sur Supabase:', error);
+      });
+    }
   };
 
   const handleDeleteExpense = (id: string) => {
     const updated = expenses.filter(e => e.id !== id);
     setExpenses(updated);
     saveToLocalStorage('meca_expenses_all', updated);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('expenses').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec delete expense sur Supabase:', error);
+      });
+    }
   };
 
   // Low stock alerts tracking count
