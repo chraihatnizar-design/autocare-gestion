@@ -215,16 +215,3 @@ ALTER TABLE supplier_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
--- Create Open Policies for ALL tables (Allows public access for simplicity, edit as needed for auth roles!)
-CREATE POLICY "Allow public read-write on clients" ON clients FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on stock" ON stock FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on stock_transactions" ON stock_transactions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on users" ON users FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on interventions" ON interventions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on quotes" ON quotes FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on invoices" ON invoices FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on reminders" ON reminders FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on suppliers" ON suppliers FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on supplier_orders" ON supplier_orders FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on expenses" ON expenses FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public read-write on settings" ON settings FOR ALL USING (true) WITH CHECK (true);
