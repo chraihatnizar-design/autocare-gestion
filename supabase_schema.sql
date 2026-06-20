@@ -179,6 +179,19 @@ CREATE TABLE IF NOT EXISTS expenses (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 13. Table: activity_logs
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id TEXT PRIMARY KEY,
+    "userName" TEXT NOT NULL,
+    action TEXT NOT NULL,
+    date TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow public read-write on activity_logs" ON activity_logs;
+CREATE POLICY "Allow public read-write on activity_logs" ON activity_logs FOR ALL USING (true) WITH CHECK (true);
+
 -- 12. Table: settings
 CREATE TABLE IF NOT EXISTS settings (
     id TEXT PRIMARY KEY, -- will hold 'global' for the one row
@@ -215,3 +228,39 @@ ALTER TABLE supplier_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
+-- Create Open Policies for ALL tables (Allows public access for simplicity, edit as needed for auth roles!)
+DROP POLICY IF EXISTS "Allow public read-write on clients" ON clients;
+CREATE POLICY "Allow public read-write on clients" ON clients FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on stock" ON stock;
+CREATE POLICY "Allow public read-write on stock" ON stock FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on stock_transactions" ON stock_transactions;
+CREATE POLICY "Allow public read-write on stock_transactions" ON stock_transactions FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on users" ON users;
+CREATE POLICY "Allow public read-write on users" ON users FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on interventions" ON interventions;
+CREATE POLICY "Allow public read-write on interventions" ON interventions FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on quotes" ON quotes;
+CREATE POLICY "Allow public read-write on quotes" ON quotes FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on invoices" ON invoices;
+CREATE POLICY "Allow public read-write on invoices" ON invoices FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on reminders" ON reminders;
+CREATE POLICY "Allow public read-write on reminders" ON reminders FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on suppliers" ON suppliers;
+CREATE POLICY "Allow public read-write on suppliers" ON suppliers FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on supplier_orders" ON supplier_orders;
+CREATE POLICY "Allow public read-write on supplier_orders" ON supplier_orders FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on expenses" ON expenses;
+CREATE POLICY "Allow public read-write on expenses" ON expenses FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read-write on settings" ON settings;
+CREATE POLICY "Allow public read-write on settings" ON settings FOR ALL USING (true) WITH CHECK (true);

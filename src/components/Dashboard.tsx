@@ -19,13 +19,14 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react';
-import { StockItem, Client, Intervention, Invoice, AppSettings } from '../types';
+import { StockItem, Client, Intervention, Invoice, AppSettings, ActivityLog } from '../types';
 
 interface DashboardProps {
   stock: StockItem[];
   clients: Client[];
   interventions: Intervention[];
   invoices: Invoice[];
+  activityLogs?: ActivityLog[];
   setActiveTab: (tab: string) => void;
   setSelectedInterventionForInvoice: (intervention: Intervention) => void;
   settings?: AppSettings;
@@ -36,6 +37,7 @@ export default function Dashboard({
   clients,
   interventions,
   invoices,
+  activityLogs = [],
   setActiveTab,
   setSelectedInterventionForInvoice,
   settings
@@ -264,6 +266,36 @@ export default function Dashboard({
                       </span>
                       <span className="text-xxs text-slate-400 font-semibold">Seuil alerte</span>
                     </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Activity Logs shortcut */}
+          <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-50 pb-3">
+              <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+                <span className="p-1.5 bg-blue-50 text-blue-600 rounded-xl"><FileText size={14} /></span>
+                Journal d'Activité
+              </h3>
+            </div>
+
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+              {activityLogs.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-xs">
+                  Aucune activité récente.
+                </div>
+              ) : (
+                activityLogs.map(log => (
+                  <div key={log.id} className="p-3 bg-slate-50/50 rounded-2xl border border-slate-100 flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-800 line-clamp-1">{log.userName}</span>
+                      <span className="text-[9px] text-slate-400 font-mono">
+                         {new Date(log.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} • {new Date(log.date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 line-clamp-2">{log.action}</p>
                   </div>
                 ))
               )}

@@ -33,6 +33,7 @@ interface InvoiceManagerProps {
   setSelectedInterventionForInvoice: (val: any) => void;
   onAddInvoice: (invoice: Omit<Invoice, 'id' | 'invoiceNumber'>) => Invoice;
   onUpdateInvoiceStatus: (id: string, status: InvoiceStatus, method: PaymentMethod) => void;
+  onDeleteInvoice?: (id: string) => void;
   settings?: AppSettings;
 }
 
@@ -44,6 +45,7 @@ export default function InvoiceManager({
   setSelectedInterventionForInvoice,
   onAddInvoice,
   onUpdateInvoiceStatus,
+  onDeleteInvoice,
   settings
 }: InvoiceManagerProps) {
   const currency = settings?.currency || 'DH';
@@ -457,6 +459,19 @@ export default function InvoiceManager({
                       className="p-2 border border-green-200 hover:border-green-400 bg-green-50 text-green-800 rounded-xl transition cursor-pointer text-xs font-black flex items-center gap-1 shadow-xxs"
                     >
                       <CheckCircle size={14} /> Passer en PAYÉE
+                    </button>
+                  )}
+
+                  {onDeleteInvoice && (
+                    <button
+                      onClick={() => {
+                        onDeleteInvoice(selectedInvoice.id);
+                        setSelectedInvoice(null);
+                      }}
+                      className="p-2 border border-red-200 hover:border-red-400 text-red-600 bg-white rounded-xl transition cursor-pointer text-xs flex items-center gap-1 font-bold"
+                      title="Supprimer cette facture"
+                    >
+                      <Trash2 size={13} />
                     </button>
                   )}
                 </div>

@@ -19,7 +19,8 @@ import {
   Volume2, 
   RotateCcw, 
   ArrowUp, 
-  ArrowDown 
+  ArrowDown,
+  Trash2
 } from 'lucide-react';
 import { StockItem, StockTransaction, AppSettings } from '../types';
 
@@ -289,9 +290,18 @@ export default function StockManager({
                     {/* Header Item */}
                     <div className="space-y-1">
                       <div className="flex justify-between items-start gap-2">
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 font-bold rounded text-xxs tracking-wide uppercase">
-                          {item.category}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 font-bold rounded text-xxs tracking-wide uppercase">
+                            {item.category}
+                          </span>
+                          <button
+                            onClick={() => onDeleteStockItem(item.id)}
+                            className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition cursor-pointer"
+                            title="Supprimer cet article"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                         
                         {isAlarm ? (
                           <span className="px-1.5 py-0.5 bg-red-100 text-red-800 font-bold rounded text-xxs flex items-center gap-0.5">

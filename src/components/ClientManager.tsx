@@ -33,9 +33,11 @@ interface ClientManagerProps {
   stock: StockItem[];
   onAddClient: (client: Omit<Client, 'id'>) => void;
   onUpdateClient: (client: Client) => void;
+  onDeleteClient?: (id: string) => void;
   onSendReminder: (reminder: Omit<ReminderLog, 'id' | 'date' | 'status'>) => void;
   onAddQuote: (quote: Omit<Quote, 'id' | 'quoteNumber' | 'status'>) => Quote;
   onUpdateQuoteStatus: (quoteId: string, status: 'Pending' | 'Accepted' | 'Rejected') => void;
+  onDeleteQuote?: (id: string) => void;
   onConvertQuoteToInvoice: (quoteId: string) => void;
   onAddInvoice: (invoice: Omit<Invoice, 'id' | 'invoiceNumber'>) => Invoice;
   settings?: AppSettings;
@@ -50,9 +52,11 @@ export default function ClientManager({
   stock,
   onAddClient,
   onUpdateClient,
+  onDeleteClient,
   onSendReminder,
   onAddQuote,
   onUpdateQuoteStatus,
+  onDeleteQuote,
   onConvertQuoteToInvoice,
   onAddInvoice,
   settings
@@ -555,13 +559,24 @@ export default function ClientManager({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     onClick={() => handleEditClick(selectedClient)}
                     className="p-2 border border-gray-200 hover:border-gray-400 text-gray-650 bg-white rounded-xl transition cursor-pointer text-xs flex items-center gap-1 font-bold"
                   >
                     <Edit size={13} /> Mettre à jour
                   </button>
+                  {onDeleteClient && (
+                    <button
+                      onClick={() => {
+                        onDeleteClient(selectedClient.id);
+                        setSelectedClient(null);
+                      }}
+                      className="p-2 border border-red-200 hover:border-red-400 text-red-600 bg-white rounded-xl transition cursor-pointer text-xs flex items-center gap-1 font-bold"
+                    >
+                      <X size={13} /> Supprimer
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -818,6 +833,16 @@ export default function ClientManager({
                                 Refuser
                               </button>
                             </>
+                          )}
+                          {onDeleteQuote && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteQuote(quote.id)}
+                              className="bg-gray-50 hover:bg-red-50 text-gray-500 hover:text-red-600 border border-gray-200 font-bold text-xxs py-1.5 px-2.5 rounded-lg cursor-pointer font-sans"
+                              title="Supprimer ce devis"
+                            >
+                              <X size={11} />
+                            </button>
                           )}
                         </div>
                       </div>

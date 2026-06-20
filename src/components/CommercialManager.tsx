@@ -103,9 +103,9 @@ export default function CommercialManager({ invoices, settings }: CommercialMana
   };
 
   const handleDeleteTransaction = (id: string) => {
-    if (confirm('Voulez-vous supprimer cette opération de caisse ?')) {
+    // if (confirm('Voulez-vous supprimer cette opération de caisse ?')) {
       setCashTransactions(cashTransactions.filter(tx => tx.id !== id));
-    }
+    // }
   };
 
   // --- Calculations for Invoiced Revenue ---

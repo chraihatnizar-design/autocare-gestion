@@ -492,9 +492,9 @@ export default function ExpenseManager({
                           </button>
                           <button
                             onClick={() => {
-                              if (confirm(`Voulez-vous supprimer cette charge : ${exp.label} ?`)) {
+                              // if (confirm(`Voulez-vous supprimer cette charge : ${exp.label} ?`)) {
                                 onDeleteExpense(exp.id);
-                              }
+                              // }
                             }}
                             className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
                           >

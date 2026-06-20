@@ -498,9 +498,9 @@ export default function SupplierManager({
                             )}
                             <button
                               onClick={() => {
-                                if (confirm("Confirmez-vous la suppression de cette commande d'achat ?")) {
+                                // if (confirm("Confirmez-vous la suppression de cette commande d'achat ?")) {
                                   onDeleteSupplierOrder(order.id);
-                                }
+                                // }
                               }}
                               className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
                               title="Supprimer la commande"
@@ -559,9 +559,9 @@ export default function SupplierManager({
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm(`Êtes-vous sûr de vouloir supprimer le fournisseur ${sup.name} ?`)) {
+                          // if (confirm(`Êtes-vous sûr de vouloir supprimer le fournisseur ${sup.name} ?`)) {
                             onDeleteSupplier(sup.id);
-                          }
+                          // }
                         }}
                         className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
                         title="Supprimer la fiche"

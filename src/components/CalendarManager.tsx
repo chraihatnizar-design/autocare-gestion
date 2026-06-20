@@ -28,6 +28,7 @@ interface CalendarManagerProps {
   clients: Client[];
   onAddIntervention: (intervention: Omit<Intervention, 'id'>) => void;
   onUpdateInterventionStatus: (id: string, status: InterventionStatus) => void;
+  onDeleteIntervention?: (id: string) => void;
   setSelectedInterventionForInvoice: (intervention: Intervention) => void;
   setActiveTab: (tab: string) => void;
   settings?: AppSettings;
@@ -38,6 +39,7 @@ export default function CalendarManager({
   clients,
   onAddIntervention,
   onUpdateInterventionStatus,
+  onDeleteIntervention,
   setSelectedInterventionForInvoice,
   setActiveTab,
   settings
@@ -301,6 +303,15 @@ export default function CalendarManager({
                               <FileText size={12} /> Facture Rapide
                             </button>
                           )}
+
+                          {onDeleteIntervention && (
+                            <button
+                              onClick={() => onDeleteIntervention(inter.id)}
+                              className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold text-xxs border border-red-200 rounded-lg flex items-center gap-1 cursor-pointer"
+                            >
+                              <X size={12} /> Supprimer
+                            </button>
+                          )}
                         </div>
 
                       </div>
@@ -329,11 +340,22 @@ export default function CalendarManager({
 
                     <div className="text-right shrink-0">
                       <span className="font-bold text-gray-900 block">{inter.priceEstimated} {currency}</span>
-                      {inter.status === 'Completed' ? (
-                        <span className="text-[10px] text-green-700 font-semibold bg-green-50 px-1.5 py-0.5 rounded-md">Réalisée</span>
-                      ) : (
-                        <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded-md">Planifiée</span>
-                      )}
+                      <div className="flex gap-2 items-center mt-1">
+                        {inter.status === 'Completed' ? (
+                          <span className="text-[10px] text-green-700 font-semibold bg-green-50 px-1.5 py-0.5 rounded-md">Réalisée</span>
+                        ) : (
+                          <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded-md">Planifiée</span>
+                        )}
+                        {onDeleteIntervention && (
+                          <button
+                            onClick={() => onDeleteIntervention(inter.id)}
+                            className="text-red-500 hover:text-red-600 transition"
+                            title="Supprimer"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

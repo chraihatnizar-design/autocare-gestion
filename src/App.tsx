@@ -21,7 +21,7 @@ import {
   Receipt
 } from 'lucide-react';
 
-import { StockItem, Client, Intervention, Invoice, ReminderLog, StockTransaction, InvoiceStatus, PaymentMethod, InterventionStatus, AppSettings, AppUser, Supplier, SupplierOrder, MonthlyExpense, Quote } from './types';
+import { StockItem, Client, Intervention, Invoice, ReminderLog, StockTransaction, InvoiceStatus, PaymentMethod, InterventionStatus, AppSettings, AppUser, Supplier, SupplierOrder, MonthlyExpense, Quote, ActivityLog } from './types';
 import { 
   DEFAULT_STOCK, 
   DEFAULT_CLIENTS, 
@@ -82,6 +82,30 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
+    const saved = localStorage.getItem('autocare_activity_logs');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const logActivity = (action: string) => {
+    if (!currentUser) return;
+    const newLog: ActivityLog = {
+      id: 'log-' + Math.random().toString(36).substr(2, 9),
+      userName: currentUser.fullName,
+      action,
+      date: new Date().toISOString()
+    };
+    const updated = [newLog, ...activityLogs].slice(0, 100); // keep last 100
+    setActivityLogs(updated);
+    localStorage.setItem('autocare_activity_logs', JSON.stringify(updated));
+
+    if (isSupabaseConfigured()) {
+      supabase.from('activity_logs').insert(newLog).then(({ error }) => {
+        if (error) console.error('Echec insertion activity log:', error);
+      });
+    }
+  };
+
   // Sync state trackers
   const [isSyncing, setIsSyncing] = useState(false);
   const [supabaseConnected, setSupabaseConnected] = useState(false);
@@ -100,8 +124,9 @@ export default function App() {
         if (dbClients.length > 0) {
           setClients(dbClients);
         } else {
-          // Table completely empty -> Auto Seed
-          await supabase.from('clients').insert(DEFAULT_CLIENTS);
+          if (DEFAULT_CLIENTS.length > 0) {
+            await supabase.from('clients').insert(DEFAULT_CLIENTS);
+          }
           setClients(DEFAULT_CLIENTS);
         }
       }
@@ -292,6 +317,14 @@ export default function App() {
           default_tax_rate: DEFAULT_SETTINGS.defaultTaxRate,
           currency: DEFAULT_SETTINGS.currency,
         });
+      }
+
+      // 13. Activity Logs
+      const { data: dbLogs, error: logsErr } = await supabase.from('activity_logs').select('*').order('date', { ascending: false }).limit(100);
+      if (dbLogs && !logsErr) {
+        if (dbLogs.length > 0) {
+          setActivityLogs(dbLogs);
+        }
       }
     } catch (e) {
       console.error('Erreur lors de la synchronisation Supabase:', e);
@@ -514,6 +547,7 @@ export default function App() {
         if (error) console.error('Echec sauvegarde transaction initiale sur Supabase:', error);
       });
     }
+    logActivity(`Ajout de l'article au stock : ${createdItem.name} (${createdItem.reference})`);
   };
 
   const handleUpdateStockQuantity = (id: string, quantityChange: number, reason: string) => {
@@ -560,9 +594,13 @@ export default function App() {
         });
       }
     }
+    if (createdTx) {
+      logActivity(`Mise à jour stock : ${(createdTx as any).itemName} (${quantityChange > 0 ? '+' : ''}${quantityChange}) - ${reason}`);
+    }
   };
 
   const handleDeleteStockItem = (id: string) => {
+    const item = stock.find(item => item.id === id);
     const updated = stock.filter(item => item.id !== id);
     setStock(updated);
     saveToLocalStorage('meca_stock', updated);
@@ -572,6 +610,7 @@ export default function App() {
         if (error) console.error('Echec suppression stock sur Supabase:', error);
       });
     }
+    if (item) logActivity(`Suppression d'article du stock : ${item.name}`);
   };
 
   // --- Handlers: Clients ---
@@ -583,11 +622,20 @@ export default function App() {
     const updated = [createdClient, ...clients];
     setClients(updated);
     saveToLocalStorage('meca_clients', updated);
+    logActivity(`Création du client : ${createdClient.name}`);
 
     if (isSupabaseConfigured()) {
-      supabase.from('clients').insert(createdClient).then(({ error }) => {
-        if (error) console.error('Echec sauvegarde client sur Supabase:', error);
+      supabase.from('clients').insert(createdClient).then(({ data, error }) => {
+        if (error) {
+          console.error('Echec sauvegarde client sur Supabase:', error);
+          alert('Erreur Supabase (Client Insert): ' + JSON.stringify(error, null, 2));
+        } else {
+          console.log('Client saved successfully', data);
+          alert('Client sauvegardé avec succès sur Supabase !');
+        }
       });
+    } else {
+      alert('Supabase n\'est pas configuré. Veuillez vérifier vos clés.');
     }
   };
 
@@ -595,10 +643,29 @@ export default function App() {
     const updated = clients.map(c => c.id === updatedClient.id ? updatedClient : c);
     setClients(updated);
     saveToLocalStorage('meca_clients', updated);
+    logActivity(`Modification du client : ${updatedClient.name}`);
 
     if (isSupabaseConfigured()) {
       supabase.from('clients').update(updatedClient).eq('id', updatedClient.id).then(({ error }) => {
-        if (error) console.error('Echec mise à jour client sur Supabase:', error);
+        if (error) {
+          console.error('Echec mise à jour client sur Supabase:', error);
+          alert('Erreur Supabase (Client Update): ' + JSON.stringify(error, null, 2));
+        }
+      });
+    }
+  };
+
+  const handleDeleteClient = (id: string) => {
+    const client = clients.find(c => c.id === id);
+    // if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce client ? Toutes ses données seront perdues.")) return;
+    const updated = clients.filter(c => c.id !== id);
+    setClients(updated);
+    saveToLocalStorage('meca_clients', updated);
+    if (client) logActivity(`Suppression du client : ${client.name}`);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('clients').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec suppression client sur Supabase:', error);
       });
     }
   };
@@ -645,6 +712,21 @@ export default function App() {
     if (isSupabaseConfigured()) {
       supabase.from('quotes').update({ status }).eq('id', quoteId).then(({ error }) => {
         if (error) console.error('Echec mise à jour statut devis sur Supabase:', error);
+      });
+    }
+  };
+
+  const handleDeleteQuote = (id: string) => {
+    const quote = quotes.find(q => q.id === id);
+    // if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce devis ?")) return;
+    const updated = quotes.filter(q => q.id !== id);
+    setQuotes(updated);
+    saveToLocalStorage('meca_quotes', updated);
+    if (quote) logActivity(`Suppression du devis : ${quote.quoteNumber}`);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('quotes').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec suppression devis sur Supabase:', error);
       });
     }
   };
@@ -870,10 +952,26 @@ export default function App() {
     );
     setInvoices(updated);
     saveToLocalStorage('meca_invoices', updated);
+    logActivity(`Mise à jour du statut paiement Facture -> ${status}`);
 
     if (isSupabaseConfigured()) {
       supabase.from('invoices').update({ status, paymentMethod: method, paymentDate: '2026-06-06' }).eq('id', id).then(({ error }) => {
         if (error) console.error('Echec update invoice status sur Supabase:', error);
+      });
+    }
+  };
+
+  const handleDeleteInvoice = (id: string) => {
+    const inv = invoices.find(inv => inv.id === id);
+    // if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette facture ?")) return;
+    const updated = invoices.filter(inv => inv.id !== id);
+    setInvoices(updated);
+    saveToLocalStorage('meca_invoices', updated);
+    if (inv) logActivity(`Suppression de la facture : ${inv.invoiceNumber}`);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('invoices').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec suppression facture sur Supabase:', error);
       });
     }
   };
@@ -887,6 +985,7 @@ export default function App() {
     const updated = [createdInter, ...interventions];
     setInterventions(updated);
     saveToLocalStorage('meca_interventions', updated);
+    logActivity(`Programmation intervention : ${createdInter.clientName}`);
 
     if (isSupabaseConfigured()) {
       supabase.from('interventions').insert(createdInter).then(({ error }) => {
@@ -901,10 +1000,26 @@ export default function App() {
     );
     setInterventions(updated);
     saveToLocalStorage('meca_interventions', updated);
+    logActivity(`Clôture intervention technique -> ${status}`);
 
     if (isSupabaseConfigured()) {
       supabase.from('interventions').update({ status }).eq('id', id).then(({ error }) => {
         if (error) console.error('Echec update status intervention sur Supabase:', error);
+      });
+    }
+  };
+
+  const handleDeleteIntervention = (id: string) => {
+    const inter = interventions.find(inter => inter.id === id);
+    // if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette intervention ?")) return;
+    const updated = interventions.filter(inter => inter.id !== id);
+    setInterventions(updated);
+    saveToLocalStorage('meca_interventions', updated);
+    if (inter) logActivity(`Suppression d'intervention de : ${inter.clientName}`);
+
+    if (isSupabaseConfigured()) {
+      supabase.from('interventions').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Echec suppression intervention sur Supabase:', error);
       });
     }
   };
@@ -1354,6 +1469,7 @@ export default function App() {
             clients={clients}
             interventions={interventions}
             invoices={invoices}
+            activityLogs={activityLogs}
             setActiveTab={setActiveTab}
             setSelectedInterventionForInvoice={setSelectedInterventionForInvoice}
             settings={settings}
@@ -1366,6 +1482,7 @@ export default function App() {
             clients={clients}
             onAddIntervention={handleAddIntervention}
             onUpdateInterventionStatus={handleUpdateInterventionStatus}
+            onDeleteIntervention={handleDeleteIntervention}
             setSelectedInterventionForInvoice={setSelectedInterventionForInvoice}
             setActiveTab={setActiveTab}
             settings={settings}
@@ -1393,9 +1510,11 @@ export default function App() {
             stock={stock}
             onAddClient={handleAddClient}
             onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
             onSendReminder={handleSendReminder}
             onAddQuote={handleAddQuote}
             onUpdateQuoteStatus={handleUpdateQuoteStatus}
+            onDeleteQuote={handleDeleteQuote}
             onConvertQuoteToInvoice={handleConvertQuoteToInvoice}
             onAddInvoice={handleAddInvoice}
             settings={settings}
@@ -1411,6 +1530,7 @@ export default function App() {
             setSelectedInterventionForInvoice={setSelectedInterventionForInvoice}
             onAddInvoice={handleAddInvoice}
             onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
+            onDeleteInvoice={handleDeleteInvoice}
             settings={settings}
           />
         )}

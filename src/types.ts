@@ -25,6 +25,13 @@ export interface StockTransaction {
   reason: string;
 }
 
+export interface ActivityLog {
+  id: string;
+  userName: string;
+  action: string;
+  date: string;
+}
+
 export interface Client {
   id: string;
   name: string;

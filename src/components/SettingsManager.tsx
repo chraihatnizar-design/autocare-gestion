@@ -148,11 +148,11 @@ export default function SettingsManager({
   };
 
   const handleReset = () => {
-    if (window.confirm("Êtes-vous sûr de vouloir réinitialiser les paramètres aux valeurs d'origine ?")) {
+    // if (window.confirm("Êtes-vous sûr de vouloir réinitialiser les paramètres aux valeurs d'origine ?")) {
       onResetSettings();
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-    }
+    // }
   };
 
   return (
@@ -662,9 +662,9 @@ export default function SettingsManager({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    if (window.confirm(`Supprimer le compte de "${user.username}" ?`)) {
+                                    // if (window.confirm(`Supprimer le compte de "${user.username}" ?`)) {
                                       onDeleteUser(user.id);
-                                    }
+                                    // }
                                   }}
                                   className="text-rose-600 hover:text-rose-750 p-1.5 hover:bg-rose-50 rounded-lg transition inline-flex items-center justify-center cursor-pointer"
                                   title="Supprimer"
