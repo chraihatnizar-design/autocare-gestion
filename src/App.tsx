@@ -108,6 +108,7 @@ export default function App() {
 
   // Sync state trackers
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(isSupabaseConfigured());
   const [supabaseConnected, setSupabaseConnected] = useState(false);
 
   // Synchronize and download all data from Supabase DB on initialization
@@ -330,6 +331,7 @@ export default function App() {
       console.error('Erreur lors de la synchronisation Supabase:', e);
     } finally {
       setIsSyncing(false);
+      setIsInitializing(false);
     }
   };
 
@@ -1197,6 +1199,15 @@ export default function App() {
   const criticalStockCount = stock.filter(item => item.quantity <= item.minThreshold).length;
 
   // Login Gate Security checks
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center flex-col gap-4">
+        <div className="w-8 h-8 md:w-12 md:h-12 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+        <p className="text-slate-500 font-medium animate-pulse text-sm">Synchronisation avec le cloud...</p>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return (
       <Login 
